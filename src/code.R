@@ -1,12 +1,16 @@
 library(dplyr)
 library(ggplot2)
-library(rstatix)
+library(ggpubr)
+
 
 ###########   EDA    ################
 
 ########### BIWEEKLY ################
 
-biweekly <- read.csv('biweekly.csv')
+biweekly <- read.csv('../data/biweekly.csv') %>% 
+  select(c('Dilution.Rates_trt', 'Final.Dry.Weight')) %>% 
+  filter(Final.Dry.Weight != 'N/A')
+
 biweekly$Final.Dry.Weight <- as.numeric(as.character(biweekly$Final.Dry.Weight))
 biweekly$Dilution.Rates_trt <- gsub(" ", "", biweekly$Dilution.Rates_trt, fixed = TRUE)
 
@@ -40,7 +44,8 @@ ggplot(biweekly.processed, aes(x=Dilution.Rates_trt, y=Mean, fill=Dilution.Rates
 
 ########### WEEKLY ################
 
-weekly <- read.csv('weekly.csv')
+weekly <- read.csv('../data/weekly.csv') %>% 
+  select(c('Dilution.Rates_trt', 'Final.Dry.Weight'))
 weekly$Final.Dry.Weight <- as.numeric(weekly$Final.Dry.Weight)
 weekly$Dilution.Rates_trt <- gsub(" ", "", weekly$Dilution.Rates_trt, fixed = TRUE)
 
@@ -71,11 +76,45 @@ ggplot(weekly.processed, aes(x=Dilution.Rates_trt, y=Mean, fill=Dilution.Rates_t
 ########### ANOVA ################
 
 # Biweekly - Dilution Rates
-aov(Final.Dry.Weight ~ Dilution.Rates_trt, data=biweekly)
+summary(aov(Final.Dry.Weight ~ Dilution.Rates_trt, data=biweekly))
 
 # Weekly - Dilution Rates
-aov(Final.Dry.Weight ~ Dilution.Rates_trt, data=weekly)
+summary(aov(Final.Dry.Weight ~ Dilution.Rates_trt, data=weekly))
 
 
-# Check if difference between biweekly and weekly
+# Check if there is a difference between biweekly and weekly
+
+# create new dataframe with both biweekly and weekly
+new.col.biweekly <- rep('biweekly', nrow(biweekly))
+new.col.weekly <- rep('weekly', nrow(weekly))
+
+biweekly.new <- biweekly %>% 
+  mutate(rate.of.application = new.col.biweekly)
+weekly.new <- weekly %>% 
+  mutate(rate.of.application = new.col.weekly)
+
+weekly.new$Dilution.Rates_trt <- gsub("[(W)]", "",
+                                      as.character(
+                                        factor(weekly.new$Dilution.Rates_trt)))
+
+combined <- rbind(biweekly.new, weekly.new)
+View(combined)
+
+
+# some visualizations
+ggboxplot(combined,
+          x='Dilution.Rates_trt',
+          y='Final.Dry.Weight',
+          color='rate.of.application',
+          palette = c("#00AFBB", "#E7B800"))
+
+ggline(combined,
+       x='Dilution.Rates_trt',
+       y='Final.Dry.Weight',
+       color='rate.of.application',
+       add=c('mean_se', 'dotplot'),
+       palette = c("#00AFBB", "#E7B800"))
+
+# two-way anova
+summary(aov(Final.Dry.Weight ~ Dilution.Rates_trt + rate.of.application, data=combined))
 
